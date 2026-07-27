@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>補助金クイック計算</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif; background:#f1f5f9; color:#0f172a; padding:24px 16px; -webkit-text-size-adjust:100%; }
+  #app { max-width:448px; margin:0 auto; --accent:#059669; --accent-bg:#ecfdf5; --accent-bd:#a7f3d0; --accent-text:#34d399; }
+  .brand { display:inline-flex; align-items:center; gap:6px; background:#1e293b; color:#fff; font-size:11px; font-weight:700; padding:4px 12px; border-radius:999px; }
+  h1 { font-size:20px; font-weight:900; margin-top:8px; letter-spacing:-.02em; }
+  .lead { font-size:12px; color:#64748b; }
+  .tabs { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:16px 0; }
+  .tab { border:1px solid #e2e8f0; background:#fff; color:#475569; border-radius:12px; padding:10px 8px; text-align:center; cursor:pointer; font:inherit; transition:.15s; }
+  .tab .t-main { font-size:14px; font-weight:700; }
+  .tab .t-sub { font-size:10px; color:#94a3b8; }
+  .tab.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.15); }
+  .tab.on .t-sub { color:rgba(255,255,255,.7); }
+  .badge { display:flex; flex-wrap:wrap; align-items:center; gap:8px; border:1px solid var(--accent-bd); background:var(--accent-bg); color:var(--accent); border-radius:12px; padding:8px 12px; font-size:12px; margin-bottom:16px; }
+  .badge b { font-weight:700; }
+  .badge .asof { margin-left:auto; color:#94a3b8; }
+  .card { background:#fff; border-radius:16px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:16px; }
+  .sec { margin-bottom:16px; }
+  .sec:last-child { margin-bottom:0; }
+  .sec-h { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .sec-n { width:20px; height:20px; border-radius:999px; background:var(--accent-bg); color:var(--accent); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .sec-t { font-size:14px; font-weight:700; color:#1e293b; }
+  .grid { display:grid; gap:8px; }
+  .g2 { grid-template-columns:repeat(2,1fr); }
+  .g3 { grid-template-columns:repeat(3,1fr); }
+  .g1 { grid-template-columns:1fr; }
+  .chip { display:flex; flex-direction:column; align-items:flex-start; text-align:left; border:1px solid #e2e8f0; background:#fff; color:#334155; border-radius:12px; padding:8px 12px; cursor:pointer; font:inherit; transition:.15s; }
+  .chip:hover { border-color:var(--accent-bd); background:var(--accent-bg); }
+  .chip.on { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 1px 3px rgba(0,0,0,.15); }
+  .chip.dis { background:#f8fafc; color:#cbd5e1; cursor:not-allowed; }
+  .chip.dis:hover { border-color:#e2e8f0; background:#f8fafc; }
+  .chip-main { font-size:14px; font-weight:600; line-height:1.2; }
+  .chip-sub { font-size:11px; color:#94a3b8; margin-top:2px; line-height:1.2; }
+  .chip.on .chip-sub { color:rgba(255,255,255,.8); }
+  .qty { display:flex; align-items:center; gap:12px; }
+  .qbtn { width:40px; height:40px; border:1px solid #e2e8f0; background:#fff; border-radius:12px; font-size:18px; font-weight:700; color:#475569; cursor:pointer; }
+  .qinput { width:80px; height:40px; border:1px solid #e2e8f0; border-radius:12px; text-align:center; font-size:18px; font-weight:700; color:#1e293b; }
+  .qinput:focus { outline:none; border-color:var(--accent); }
+  .qunit { font-size:14px; color:#94a3b8; }
+  .note { background:#f8fafc; color:#64748b; border-radius:12px; padding:10px 12px; font-size:13px; line-height:1.5; }
+  .note a, .link a { color:var(--accent); font-weight:600; text-decoration:none; }
+  .link { font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.6; }
+  .result { background:#0f172a; color:#fff; border-radius:16px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,.15); }
+  .r-summary { font-size:11px; color:#94a3b8; line-height:1.4; margin-bottom:12px; }
+  .r-row { display:flex; align-items:baseline; justify-content:space-between; }
+  .r-label { font-size:12px; color:#94a3b8; }
+  .r-unit { font-size:18px; font-weight:700; color:#cbd5e1; }
+  .r-div { height:1px; background:#334155; margin:12px 0; }
+  .r-total-l { font-size:14px; font-weight:600; color:var(--accent-text); }
+  .r-total-v { font-size:30px; font-weight:900; letter-spacing:-.02em; color:var(--accent-text); }
+  .r-foot { font-size:11px; color:#94a3b8; line-height:1.6; margin-top:12px; }
+  .credit { text-align:center; font-size:11px; color:#94a3b8; margin-top:16px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ===== 補助額データ（公式サイトから抽出・アプリ内蔵） ===== */
+const BUILDINGS = [
+  { key:"kodate", label:"戸建住宅", sub:"240㎡以下の非住宅" },
+  { key:"low",    label:"低層集合", sub:"3階以下・240㎡超" },
+  { key:"high",   label:"中高層集合", sub:"4階以上・240㎡超" },
+];
+const GRADE_LABEL = { P:{main:"P（SS）",sub:"1.1以下"}, S:{main:"S",sub:"1.5以下"}, A:{main:"A",sub:"1.9以下"} };
+
+const WINDOW_WORKS = {
+  "inner-window": { label:"内窓設置", unit:"窓", grades:["P","S"],
+    sizes:[{main:"特大 G",sub:"4.0㎡〜"},{main:"大 L",sub:"2.8〜4.0㎡"},{main:"中 M",sub:"1.6〜2.8㎡"},{main:"小 S",sub:"0.2〜1.6㎡"}],
+    amounts:{ kodate:{P:[140000,89000,58000,36000],S:[76000,52000,34000,22000]},
+      low:{P:[152000,98000,64000,40000],S:[83000,57000,37000,24000]},
+      high:{P:[152000,98000,64000,40000],S:[83000,57000,37000,24000]} } },
+  glass: { label:"ガラス交換", unit:"枚", grades:["P","S","A"],
+    sizes:[{main:"特大 G",sub:"2.0㎡〜"},{main:"大 L",sub:"1.4〜2.0㎡"},{main:"中 M",sub:"0.8〜1.4㎡"},{main:"小 S",sub:"0.1〜0.8㎡"}],
+    amounts:{ kodate:{P:[78000,52000,32000,11000],S:[53000,35000,23000,7000],A:[41000,27000,18000,5000]},
+      low:{P:[86000,57000,35000,12000],S:[59000,39000,25000,8000],A:[45000,30000,20000,6000]},
+      high:{P:[86000,57000,35000,12000],S:[59000,39000,25000,8000],A:[45000,30000,20000,6000]} } },
+  "outer-cover": { label:"外窓・カバー", unit:"窓", grades:["P","S","A"],
+    sizes:[{main:"特大 G",sub:"4.0㎡〜"},{main:"大 L",sub:"2.8〜4.0㎡"},{main:"中 M",sub:"1.6〜2.8㎡"},{main:"小 S",sub:"0.2〜1.6㎡"}],
+    amounts:{ kodate:{P:[239000,188000,138000,89000],S:[156000,124000,92000,60000],A:[116000,88000,66000,41000]},
+      low:{P:[239000,188000,138000,89000],S:[156000,124000,92000,60000],A:[116000,88000,66000,41000]},
+      high:{P:[302000,229000,156000,92000],S:[202000,153000,104000,62000],A:[174000,133000,92000,54000]} } },
+  "outer-hatsuri": { label:"外窓・はつり", unit:"窓", grades:["P","S","A"],
+    sizes:[{main:"特大 G",sub:"4.0㎡〜"},{main:"大 L",sub:"2.8〜4.0㎡"},{main:"中 M",sub:"1.6〜2.8㎡"},{main:"小 S",sub:"0.2〜1.6㎡"}],
+    amounts:{ kodate:{P:[194000,149000,110000,69000],S:[117000,92000,68000,44000],A:[86000,63000,48000,29000]},
+      low:{P:[194000,149000,110000,69000],S:[117000,92000,68000,44000],A:[86000,63000,48000,29000]},
+      high:{P:[302000,229000,156000,92000],S:[202000,153000,104000,62000],A:[174000,133000,92000,54000]} } },
+  "door-cover": { label:"ドア・カバー", unit:"枚", grades:["P","S","A"],
+    sizes:[{main:"特大 G",sub:"4.0㎡〜"},{main:"大 L",sub:"2.8〜4.0㎡"},{main:"中 M",sub:"1.6〜2.8㎡"},{main:"小 S",sub:"1.0〜1.6㎡"}],
+    amounts:{ kodate:{P:[239000,188000,138000,89000],S:[156000,124000,92000,60000],A:[116000,88000,66000,41000]},
+      low:{P:[239000,188000,138000,89000],S:[156000,124000,92000,60000],A:[116000,88000,66000,41000]},
+      high:{P:[302000,229000,156000,92000],S:[202000,153000,104000,62000],A:[174000,133000,92000,54000]} } },
+  "door-hatsuri": { label:"ドア・はつり", unit:"枚", grades:["P","S","A"],
+    sizes:[{main:"特大 G",sub:"4.0㎡〜"},{main:"大 L",sub:"2.8〜4.0㎡"},{main:"中 M",sub:"1.6〜2.8㎡"},{main:"小 S",sub:"1.0〜1.6㎡"}],
+    amounts:{ kodate:{P:[194000,149000,110000,69000],S:[117000,92000,68000,44000],A:[86000,63000,48000,29000]},
+      low:{P:[194000,149000,110000,69000],S:[117000,92000,68000,44000],A:[86000,63000,48000,29000]},
+      high:{P:[302000,229000,156000,92000],S:[202000,153000,104000,62000],A:[174000,133000,92000,54000]} } },
+};
+const WINDOW_ORDER = ["inner-window","glass","outer-cover","outer-hatsuri","door-cover","door-hatsuri"];
+
+const KYUTOU = {
+  ecocute:{label:"エコキュート",base:70000,bonus:30000},
+  hybrid:{label:"ハイブリッド給湯機",base:100000,bonus:20000},
+  enefarm:{label:"エネファーム",base:170000,bonus:0},
+};
+const KYUTOU_ORDER = ["ecocute","hybrid","enefarm"];
+
+/* みらいエコ 新築（注文住宅）: 1戸あたり。region "cold"=1〜4地域, "warm"=5〜8地域。jokyaku=古家除却加算 */
+const MIRAI_NEW = {
+  gx:    { label:"GX志向型住宅",  sub:"全世帯が対象",             cold:1250000, warm:1100000, jokyaku:0 },
+  choki: { label:"長期優良住宅",   sub:"子育て/若者夫婦世帯が対象", cold:800000,  warm:750000,  jokyaku:200000 },
+  zeh:   { label:"ZEH水準住宅",   sub:"子育て/若者夫婦世帯が対象", cold:400000,  warm:350000,  jokyaku:200000 },
+};
+const MIRAI_ORDER = ["gx","choki","zeh"];
+const REGIONS = [
+  { key:"warm", main:"5〜8地域", sub:"温暖地（神戸市は6地域）" },
+  { key:"cold", main:"1〜4地域", sub:"寒冷地・準寒冷地・高地" },
+];
+
+const yen = n => "¥" + Number(n).toLocaleString("ja-JP");
+const esc = s => String(s);
+
+/* ===== 状態 ===== */
+const S = { program:"window",
+  work:"inner-window", building:"kodate", grade:"P", size:2, wqty:1,
+  device:"ecocute", bonus:false, kqty:1,
+  mtype:"gx", region:"warm", jokyaku:false, mqty:1,
+  rates:null };
+const ACCENT = {
+  window:{a:"#059669",bg:"#ecfdf5",bd:"#a7f3d0",tx:"#34d399"},
+  kyutou:{a:"#ea580c",bg:"#fff7ed",bd:"#fed7aa",tx:"#fb923c"},
+  mirai:{a:"#2563eb",bg:"#eff6ff",bd:"#bfdbfe",tx:"#60a5fa"},
+};
+
+function chip(active, main, sub, attrs, dis){
+  return `<button class="chip ${dis?'dis':(active?'on':'')}" ${dis?'':attrs}><span class="chip-main">${esc(main)}</span>${sub?`<span class="chip-sub">${esc(sub)}</span>`:''}</button>`;
+}
+function sec(n,title,inner){
+  return `<div class="sec"><div class="sec-h"><span class="sec-n">${n}</span><span class="sec-t">${title}</span></div>${inner}</div>`;
+}
+function qtyHtml(val,unit){
+  return `<div class="qty"><button class="qbtn" data-qty="dec">−</button><input class="qinput" type="number" min="1" value="${val}" data-qty="input"><button class="qbtn" data-qty="inc">+</button><span class="qunit">${unit}</span></div>`;
+}
+
+function render(){
+  const app = document.getElementById("app");
+  const ac = ACCENT[S.program] || ACCENT.window;
+  app.style.setProperty("--accent", ac.a);
+  app.style.setProperty("--accent-bg", ac.bg);
+  app.style.setProperty("--accent-bd", ac.bd);
+  app.style.setProperty("--accent-text", ac.tx);
+
+  // 計算
+  let perUnit=0, total=0, unit="", summary="";
+  if(S.program==="window"){
+    const cfg=WINDOW_WORKS[S.work];
+    const g=cfg.grades.includes(S.grade)?S.grade:"P";
+    perUnit=cfg.amounts[S.building][g][S.size];
+    total=perUnit*(Number(S.wqty)||0); unit=cfg.unit;
+    const bl=BUILDINGS.find(b=>b.key===S.building).label;
+    summary=`${cfg.label}・${bl}・${GRADE_LABEL[g].main}・${cfg.sizes[S.size].main} × ${S.wqty}${cfg.unit}`;
+  } else if(S.program==="kyutou"){
+    const d=KYUTOU[S.device];
+    perUnit=d.base+(S.bonus&&d.bonus?d.bonus:0);
+    total=perUnit*(Number(S.kqty)||0); unit="台";
+    summary=`${d.label}${d.bonus?(S.bonus?"・加算あり":"・基本のみ"):""} × ${S.kqty}台`;
+  } else { // mirai 新築
+    const m=MIRAI_NEW[S.mtype];
+    const base=S.region==="cold"?m.cold:m.warm;
+    const add=(S.jokyaku&&m.jokyaku)?m.jokyaku:0;
+    perUnit=base+add;
+    total=perUnit*(Number(S.mqty)||0); unit="戸";
+    const rl=REGIONS.find(r=>r.key===S.region).main;
+    summary=`新築・${m.label}・${rl}${add?"・古家除却+20万":""} × ${S.mqty}戸`;
+  }
+
+  // タブ
+  const progs=[{k:"window",l:"窓リノベ",o:"環境省"},{k:"kyutou",l:"給湯省エネ",o:"経産省"},{k:"mirai",l:"みらいエコ",o:"国交省"}];
+  const tabs=progs.map(p=>`<button class="tab ${S.program===p.k?'on':''}" data-tab="${p.k}"><div class="t-main">${p.l}</div><div class="t-sub">${p.o}</div></button>`).join("");
+
+  // 消化率バッジ（窓・給湯のみ自動取得）
+  let badge="";
+  const r=S.rates&&S.rates[S.program];
+  if(r&&(r.main||r.tekkyo)){
+    badge=`<div class="badge"><b>予算消化率</b>${r.main?`<span>本体 ${r.main.rate}%</span>`:''}${r.tekkyo?`<span>／ 撤去加算 ${r.tekkyo.rate}%</span>`:''}${r.main&&r.main.as_of?`<span class="asof">${r.main.as_of} 時点</span>`:''}</div>`;
+  }
+
+  // 入力パネル
+  let panel="";
+  if(S.program==="window"){
+    const cfg=WINDOW_WORKS[S.work];
+    const workChips=WINDOW_ORDER.map(k=>chip(S.work===k, WINDOW_WORKS[k].label, "", `data-work="${k}"`)).join("");
+    const bldChips=BUILDINGS.map(b=>chip(S.building===b.key, b.label, b.sub, `data-building="${b.key}"`)).join("");
+    const grdChips=cfg.grades.map(g=>chip(S.grade===g, GRADE_LABEL[g].main, GRADE_LABEL[g].sub, `data-grade="${g}"`)).join("");
+    const szChips=cfg.sizes.map((s,i)=>chip(S.size===i, s.main, s.sub, `data-size="${i}"`)).join("");
+    panel=`
+      ${sec(1,"工事タイプ",`<div class="grid g2">${workChips}</div>`)}
+      ${sec(2,"建物の種類",`<div class="grid g3">${bldChips}</div>`)}
+      ${sec(3,"性能区分（Uw/Ud）",`<div class="grid ${cfg.grades.length===3?'g3':'g2'}">${grdChips}</div>`)}
+      ${sec(4,"サイズ（面積）",`<div class="grid g2">${szChips}</div>`)}
+      ${sec(5,`数量（${cfg.unit}数）`, qtyHtml(S.wqty, cfg.unit))}
+    `;
+  } else if(S.program==="kyutou"){
+    const d=KYUTOU[S.device];
+    const devChips=KYUTOU_ORDER.map(k=>{const dv=KYUTOU[k]; const sub=dv.bonus?`基本${dv.base/10000}万 ＋ 加算${dv.bonus/10000}万`:`${dv.base/10000}万円/台（加算なし）`; return chip(S.device===k, dv.label, sub, `data-device="${k}"`);}).join("");
+    const bonusPart = d.bonus
+      ? `<div class="grid g2">${chip(!S.bonus,"基本のみ",`${d.base/10000}万円/台`,'data-bonus="0"')}${chip(S.bonus,"加算あり",`${(d.base+d.bonus)/10000}万円/台`,'data-bonus="1"')}</div>`
+      : `<div class="note">この機器に性能加算はありません（一律 ${d.base/10000}万円/台）</div>`;
+    panel=`
+      ${sec(1,"対象機器",`<div class="grid g1">${devChips}</div>`)}
+      ${sec(2,"性能加算",bonusPart)}
+      ${sec(3,"台数", qtyHtml(S.kqty,"台"))}
+    `;
+  } else { // mirai
+    const m=MIRAI_NEW[S.mtype];
+    const typeChips = `${chip(true,"新築（注文住宅）","対象要件 公開済み",'data-mtype-tab="new"')}${chip(false,"リフォーム","公式サイト準備中","",true)}`;
+    const houseChips = MIRAI_ORDER.map(k=>chip(S.mtype===k, MIRAI_NEW[k].label, MIRAI_NEW[k].sub, `data-mtype="${k}"`)).join("");
+    const regionChips = REGIONS.map(r=>chip(S.region===r.key, r.main, r.sub, `data-region="${r.key}"`)).join("");
+    const jokyakuPart = m.jokyaku
+      ? `<div class="grid g2">${chip(!S.jokyaku,"なし",`${m.label} 基本額`,'data-jokyaku="0"')}${chip(S.jokyaku,"あり","古家除却 +20万円",'data-jokyaku="1"')}</div>`
+      : `<div class="note">GX志向型住宅に古家除却の加算はありません</div>`;
+    panel=`
+      <div class="link">📊 最新の消化率（公式）：<a href="https://mirai-eco2026.mlit.go.jp/graph-gx/" target="_blank" rel="noopener">GX志向型</a> ／ <a href="https://mirai-eco2026.mlit.go.jp/graph/" target="_blank" rel="noopener">長期優良・ZEH</a></div>
+      ${sec(1,"種別",`<div class="grid g2">${typeChips}</div>`)}
+      ${sec(2,"補助対象住宅",`<div class="grid g1">${houseChips}</div>`)}
+      ${sec(3,"地域区分",`<div class="grid g2">${regionChips}</div>`)}
+      ${sec(4,"古家の除却加算",jokyakuPart)}
+      ${sec(5,"戸数", qtyHtml(S.mqty,"戸"))}
+    `;
+  }
+
+  app.innerHTML=`
+    <div class="brand">住宅省エネ2026キャンペーン</div>
+    <h1>補助金クイック計算</h1>
+    <p class="lead">3事業を1画面で ／ （株）ライフデザイン営業用</p>
+    <div class="tabs">${tabs}</div>
+    ${badge}
+    <div class="card">${panel}</div>
+    <div class="result">
+      <p class="r-summary">${esc(summary)}</p>
+      <div class="r-row"><span class="r-label">1${unit}あたり</span><span class="r-unit">${yen(perUnit)}</span></div>
+      <div class="r-div"></div>
+      <div class="r-row"><span class="r-total-l">補助額の合計</span><span class="r-total-v">${yen(total)}</span></div>
+      <p class="r-foot">※1製品/戸あたりの補助額 × 数量の目安。実際の交付は登録製品・性能証明書・地域区分等の区分に基づきます。給湯の撤去加算・みらいエコのリフォームは未反映。</p>
+    </div>
+    <p class="credit">補助額はアプリ内蔵／窓・給湯の消化率は自動取得（DBなし）</p>
+  `;
+}
+
+/* ===== イベント ===== */
+document.addEventListener("click", e=>{
+  const el=e.target.closest("[data-tab],[data-work],[data-building],[data-grade],[data-size],[data-device],[data-bonus],[data-mtype],[data-region],[data-jokyaku],[data-qty]");
+  if(!el) return;
+  const qtyKey = S.program==="window" ? "wqty" : (S.program==="kyutou" ? "kqty" : "mqty");
+  const d=el.dataset;
+  if(d.tab){ S.program=d.tab; }
+  else if(d.work){ S.work=d.work; if(!WINDOW_WORKS[S.work].grades.includes(S.grade)) S.grade="P"; }
+  else if(d.building){ S.building=d.building; }
+  else if(d.grade){ S.grade=d.grade; }
+  else if(d.size!==undefined && d.size!==""){ S.size=Number(d.size); }
+  else if(d.device){ S.device=d.device; }
+  else if(d.bonus!==undefined && d.bonus!==""){ S.bonus=d.bonus==="1"; }
+  else if(d.mtype){ S.mtype=d.mtype; if(!MIRAI_NEW[S.mtype].jokyaku) S.jokyaku=false; }
+  else if(d.region){ S.region=d.region; }
+  else if(d.jokyaku!==undefined && d.jokyaku!==""){ S.jokyaku=d.jokyaku==="1"; }
+  else if(d.qty==="inc"){ S[qtyKey]=Number(S[qtyKey])+1; }
+  else if(d.qty==="dec"){ S[qtyKey]=Math.max(1,Number(S[qtyKey])-1); }
+  else return;
+  render();
+});
+document.addEventListener("input", e=>{
+  if(e.target.dataset && e.target.dataset.qty==="input"){
+    const qtyKey = S.program==="window" ? "wqty" : (S.program==="kyutou" ? "kqty" : "mqty");
+    S[qtyKey]=e.target.value;
+    let total=0;
+    if(S.program==="window"){ const cfg=WINDOW_WORKS[S.work]; const g=cfg.grades.includes(S.grade)?S.grade:"P"; total=cfg.amounts[S.building][g][S.size]*(Number(S.wqty)||0); }
+    else if(S.program==="kyutou"){ const d=KYUTOU[S.device]; total=(d.base+(S.bonus&&d.bonus?d.bonus:0))*(Number(S.kqty)||0); }
+    else { const m=MIRAI_NEW[S.mtype]; const base=S.region==="cold"?m.cold:m.warm; const add=(S.jokyaku&&m.jokyaku)?m.jokyaku:0; total=(base+add)*(Number(S.mqty)||0); }
+    const tv=document.querySelector(".r-total-v"); if(tv) tv.textContent=yen(total);
+  }
+});
+
+/* 消化率（窓・給湯）を取得。失敗しても計算は動く */
+fetch("/api/rates").then(r=>r.ok?r.json():null).then(j=>{ if(j&&j.rates){ S.rates=j.rates; render(); } }).catch(()=>{});
+
+render();
+</script>
+</body>
+</html>
