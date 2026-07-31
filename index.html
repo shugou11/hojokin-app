@@ -56,6 +56,12 @@
   .r-total-v { font-size:30px; font-weight:900; letter-spacing:-.02em; color:var(--accent-text); }
   .r-foot { font-size:11px; color:#94a3b8; line-height:1.6; margin-top:12px; }
   .credit { text-align:center; font-size:11px; color:#94a3b8; margin-top:16px; }
+  .addbtn { width:100%; margin-top:4px; padding:10px; border:1px dashed var(--accent); background:var(--accent-bg); color:var(--accent); border-radius:12px; font:inherit; font-weight:700; font-size:14px; cursor:pointer; }
+  .rf-builder { border:1px solid #e2e8f0; border-radius:12px; padding:12px; background:#fbfdff; margin-top:4px; }
+  .item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; margin-bottom:6px; }
+  .item-l { font-size:13px; color:#334155; flex:1; line-height:1.3; }
+  .item-r { font-size:14px; font-weight:700; color:#0f172a; white-space:nowrap; }
+  .item-x { width:24px; height:24px; border:none; background:#f1f5f9; color:#64748b; border-radius:6px; font-size:14px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -136,6 +142,27 @@ const REFORM_CAP = {
   h4_h28:    { gimu:800000,  jisedai:400000 },
 };
 
+/* リフォーム実額つみあげ: 開口部（1箇所/枚あたり, 性能B/CDE/YZ・内窓のみA）×サイズ[大,中,小] */
+const RF_OPEN = {
+  glass: { label:"ガラス交換", unit:"枚", sizes:["大","中","小"],
+    perfs:{ B:[24000,16000,4000], CDE:[18000,13000,3000], YZ:[27000,18000,5000] } },
+  inner: { label:"内窓設置", unit:"窓", sizes:["大","中","小"],
+    perfs:{ A:[42000,22000,17000], B:[37000,19000,16000], CDE:[27000,16000,13000], YZ:[42000,22000,17000] } },
+  outer: { label:"外窓交換", unit:"窓", sizes:["大","中","小"],
+    perfs:{ B:[49000,35000,28000], CDE:[41000,31000,26000], YZ:[63000,48000,29000] } },
+  door:  { label:"ドア交換", unit:"枚", sizes:["大","小"],
+    perfs:{ B:[44000,25000], CDE:[41000,23000], YZ:[41000,23000] } },
+};
+const RF_OPEN_ORDER = ["glass","inner","outer","door"];
+const PERF_LABEL = { A:"A", B:"B", CDE:"C・D・E", YZ:"Y・Z" };
+/* 設備（定額） */
+const RF_EQUIP = {
+  kyutou_hp:  { label:"高効率給湯器(エコキュート/ハイブリッド)", amount:45000, unit:"戸" },
+  kyutou_gas: { label:"高効率給湯器(エコジョーズ/エコフィール)", amount:30000, unit:"戸" },
+  aircon:     { label:"高効率エアコン", amount:52000, unit:"箇所" },
+};
+const RF_EQUIP_ORDER = ["kyutou_hp","kyutou_gas","aircon"];
+
 const yen = n => "¥" + Number(n).toLocaleString("ja-JP");
 const esc = s => String(s);
 
@@ -145,6 +172,7 @@ const S = { program:"window",
   device:"ecocute", bonus:false, kqty:1,
   mtype:"gx", region:"warm", jokyaku:false, mqty:1,
   mkind:"new", rEra:"h4_h28", rBasis:"gimu", rqty:1,
+  rMode:"cap", rItems:[], dCat:"open", dMenu:"inner", dPerf:"B", dSize:0, dCount:1,
   rates:null };
 const ACCENT = {
   window:{a:"#059669",bg:"#ecfdf5",bd:"#a7f3d0",tx:"#34d399"},
@@ -161,6 +189,14 @@ function sec(n,title,inner){
 function qtyHtml(val,unit){
   return `<div class="qty"><button class="qbtn" data-qty="dec">−</button><input class="qinput" type="number" min="1" value="${val}" data-qty="input"><button class="qbtn" data-qty="inc">+</button><span class="qunit">${unit}</span></div>`;
 }
+function dqtyHtml(val,unit){
+  return `<div class="qty"><button class="qbtn" data-dqty="dec">−</button><input class="qinput" type="number" min="1" value="${val}" data-dqty="input"><button class="qbtn" data-dqty="inc">+</button><span class="qunit">${unit}</span></div>`;
+}
+function rfItemAmt(it){
+  if(it.cat==="open"){ const m=RF_OPEN[it.menu]; return (m.perfs[it.perf][it.size]||0)*it.count; }
+  return RF_EQUIP[it.menu].amount*it.count;
+}
+function rfSum(){ return S.rItems.reduce((a,it)=>a+rfItemAmt(it),0); }
 
 function render(){
   const app = document.getElementById("app");
@@ -194,12 +230,17 @@ function render(){
       const rl=REGIONS.find(r=>r.key===S.region).main;
       summary=`新築・${m.label}・${rl}${add?"・古家除却+20万":""} × ${S.mqty}戸`;
     } else { // reform
-      perUnit=REFORM_CAP[S.rEra][S.rBasis];
-      total=perUnit*(Number(S.rqty)||0); unit="戸";
-      resultLabel="補助上限額";
+      const cap=REFORM_CAP[S.rEra][S.rBasis];
       const el=REFORM_ERAS.find(e=>e.key===S.rEra).main;
       const bl=REFORM_BASIS.find(b=>b.key===S.rBasis).main;
-      summary=`リフォーム・${el}・${bl} × ${S.rqty}戸（上限額）`;
+      if(S.rMode==="cap"){
+        perUnit=cap; total=cap; unit="戸"; resultLabel="補助上限額";
+        summary=`リフォーム・${el}・${bl}（1戸あたり上限額）`;
+      } else {
+        const sum=rfSum();
+        perUnit=sum; total=Math.min(sum,cap); unit="戸"; resultLabel="交付見込み額";
+        summary=`積み上げ ${yen(sum)}${sum>cap?` → 上限${yen(cap)}適用`:``} ／ ${el}・${bl}`;
+      }
     }
   }
 
@@ -259,20 +300,67 @@ function render(){
         ${sec(5,"戸数", qtyHtml(S.mqty,"戸"))}
       `;
     } else { // reform
+      const cap=REFORM_CAP[S.rEra][S.rBasis];
       const eraChips = REFORM_ERAS.map(e=>chip(S.rEra===e.key, e.main, e.sub, `data-rera="${e.key}"`)).join("");
       const basisChips = REFORM_BASIS.map(b=>chip(S.rBasis===b.key, b.main, b.sub, `data-rbasis="${b.key}"`)).join("");
-      panel=`
-        ${linkRow}
-        ${sec(1,"種別",`<div class="grid g2">${kindChips}</div>`)}
-        <div class="note">対象は「平成28年（2016年）12月31日以前に新築」された住宅です。</div>
-        ${sec(2,"対象住宅の新築時期",`<div class="grid g1" style="margin-top:8px">${eraChips}</div>`)}
-        ${sec(3,"実施する工事の基準",`<div class="grid g1">${basisChips}</div>`)}
-        ${sec(4,"戸数", qtyHtml(S.rqty,"戸"))}
-        <div class="note" style="margin-top:8px">表示額は補助の<b>上限額</b>です。実際の補助額は、実施する工事メニュー（開口部・躯体・給湯器など）ごとの補助額の合計で、この上限まで交付されます。</div>
-      `;
+      const modeChips = `${chip(S.rMode==="cap","上限を見る","",'data-rmode="cap"')}${chip(S.rMode==="sum","実額つみあげ","",'data-rmode="sum"')}`;
+      const condSecs = `${sec("時","対象住宅の新築時期",`<div class="grid g1">${eraChips}</div>`)}${sec("基","実施する工事の基準",`<div class="grid g1">${basisChips}</div>`)}`;
+      if(S.rMode==="cap"){
+        panel=`
+          ${linkRow}
+          ${sec(1,"種別",`<div class="grid g2">${kindChips}</div>`)}
+          ${sec(2,"計算モード",`<div class="grid g2">${modeChips}</div>`)}
+          <div class="note">対象は「平成28年（2016年）12月31日以前に新築」された住宅です。</div>
+          ${condSecs}
+          <div class="note" style="margin-top:8px">表示額は補助の<b>上限額</b>です。実際の額は「実額つみあげ」で工事を足して概算できます。</div>
+        `;
+      } else {
+        const catChips = `${chip(S.dCat==="open","開口部の断熱改修","",'data-dcat="open"')}${chip(S.dCat==="equip","特定エコ設備","",'data-dcat="equip"')}`;
+        let draftBody="";
+        if(S.dCat==="open"){
+          const m=RF_OPEN[S.dMenu]; const perfKeys=Object.keys(m.perfs);
+          const menuChips=RF_OPEN_ORDER.map(k=>chip(S.dMenu===k, RF_OPEN[k].label,"",`data-dmenu="${k}"`)).join("");
+          const perfChips=perfKeys.map(k=>chip(S.dPerf===k, PERF_LABEL[k],"",`data-dperf="${k}"`)).join("");
+          const sizeChips=m.sizes.map((sz,i)=>chip(S.dSize===i, sz,"",`data-dsize="${i}"`)).join("");
+          draftBody=`
+            ${sec("工","工事メニュー",`<div class="grid g2">${menuChips}</div>`)}
+            ${sec("性","性能区分",`<div class="grid ${perfKeys.length>=3?'g3':'g2'}">${perfChips}</div>`)}
+            ${sec("size","サイズ",`<div class="grid ${m.sizes.length===3?'g3':'g2'}">${sizeChips}</div>`)}
+            ${sec("数",`数量（${m.unit}）`, dqtyHtml(S.dCount,m.unit))}`;
+        } else {
+          const menuChips=RF_EQUIP_ORDER.map(k=>chip(S.dMenu===k, RF_EQUIP[k].label, `${RF_EQUIP[k].amount.toLocaleString()}円/${RF_EQUIP[k].unit}`,`data-dmenu="${k}"`)).join("");
+          draftBody=`
+            ${sec("設","設備",`<div class="grid g1">${menuChips}</div>`)}
+            ${sec("数","数量", dqtyHtml(S.dCount, RF_EQUIP[S.dMenu].unit))}`;
+        }
+        let list="";
+        if(S.rItems.length){
+          list=S.rItems.map((it,i)=>{
+            const amt=rfItemAmt(it);
+            const lbl = it.cat==="open" ? `${RF_OPEN[it.menu].label}・${PERF_LABEL[it.perf]}・${RF_OPEN[it.menu].sizes[it.size]} ×${it.count}` : `${RF_EQUIP[it.menu].label} ×${it.count}`;
+            return `<div class="item"><span class="item-l">${lbl}</span><span class="item-r">${yen(amt)}</span><button class="item-x" data-removeitem="${i}">×</button></div>`;
+          }).join("");
+        } else { list=`<div class="note">まだ工事がありません。上で選んで「追加」を押してください。</div>`; }
+        panel=`
+          ${linkRow}
+          ${sec(1,"種別",`<div class="grid g2">${kindChips}</div>`)}
+          ${sec(2,"計算モード",`<div class="grid g2">${modeChips}</div>`)}
+          ${condSecs}
+          <div class="sec-t" style="margin:4px 0 8px">工事を追加</div>
+          <div class="rf-builder">
+            ${sec("種","カテゴリ",`<div class="grid g2">${catChips}</div>`)}
+            ${draftBody}
+            <button class="addbtn" data-additem="1">＋ この工事を追加</button>
+          </div>
+          <div class="sec-t" style="margin:16px 0 8px">追加した工事</div>
+          ${list}
+          <div class="note" style="margin-top:8px">躯体の断熱改修・その他メニュー（④〜⑨）は個別見積です。合計は上限額 ${yen(cap)} で頭打ちになります。</div>
+        `;
+      }
     }
   }
 
+  const topLabel=(S.program==="mirai"&&S.mkind==="reform"&&S.rMode==="sum")?"積み上げ合計":("1"+unit+"あたり");
   app.innerHTML=`
     <div class="brand">住宅省エネ2026キャンペーン</div>
     <h1>補助金クイック計算</h1>
@@ -282,10 +370,10 @@ function render(){
     <div class="card">${panel}</div>
     <div class="result">
       <p class="r-summary">${esc(summary)}</p>
-      <div class="r-row"><span class="r-label">1${unit}あたり</span><span class="r-unit">${yen(perUnit)}</span></div>
+      <div class="r-row"><span class="r-label">${topLabel}</span><span class="r-unit">${yen(perUnit)}</span></div>
       <div class="r-div"></div>
       <div class="r-row"><span class="r-total-l">${resultLabel}</span><span class="r-total-v">${yen(total)}</span></div>
-      <p class="r-foot">※1製品/戸あたりの補助額 × 数量の目安。実際の交付は登録製品・性能証明書・地域区分等の区分に基づきます。給湯の撤去加算・みらいエコのリフォームは未反映。</p>
+      <p class="r-foot">※目安金額です。実際の交付は登録製品・性能証明書・地域区分等の区分に基づきます。給湯の撤去加算、リフォームの躯体断熱・その他メニュー(④〜⑨)は未反映。</p>
     </div>
     <p class="credit">補助額はアプリ内蔵／窓・給湯の消化率は自動取得（DBなし）</p>
   `;
@@ -293,7 +381,7 @@ function render(){
 
 /* ===== イベント ===== */
 document.addEventListener("click", e=>{
-  const el=e.target.closest("[data-tab],[data-work],[data-building],[data-grade],[data-size],[data-device],[data-bonus],[data-mkind],[data-mtype],[data-region],[data-jokyaku],[data-rera],[data-rbasis],[data-qty]");
+  const el=e.target.closest("[data-tab],[data-work],[data-building],[data-grade],[data-size],[data-device],[data-bonus],[data-mkind],[data-mtype],[data-region],[data-jokyaku],[data-rera],[data-rbasis],[data-rmode],[data-dcat],[data-dmenu],[data-dperf],[data-dsize],[data-dqty],[data-additem],[data-removeitem],[data-qty]");
   if(!el) return;
   const qtyKey = S.program==="window" ? "wqty" : (S.program==="kyutou" ? "kqty" : (S.mkind==="reform" ? "rqty" : "mqty"));
   const d=el.dataset;
@@ -310,12 +398,22 @@ document.addEventListener("click", e=>{
   else if(d.jokyaku!==undefined && d.jokyaku!==""){ S.jokyaku=d.jokyaku==="1"; }
   else if(d.rera){ S.rEra=d.rera; }
   else if(d.rbasis){ S.rBasis=d.rbasis; }
+  else if(d.rmode){ S.rMode=d.rmode; }
+  else if(d.dcat){ S.dCat=d.dcat; S.dMenu = d.dcat==="open" ? "inner" : "kyutou_hp"; if(S.dCat==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } }
+  else if(d.dmenu){ S.dMenu=d.dmenu; if(S.dCat==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } }
+  else if(d.dperf){ S.dPerf=d.dperf; }
+  else if(d.dsize!==undefined && d.dsize!==""){ S.dSize=Number(d.dsize); }
+  else if(d.dqty==="inc"){ S.dCount=Number(S.dCount)+1; }
+  else if(d.dqty==="dec"){ S.dCount=Math.max(1,Number(S.dCount)-1); }
+  else if(d.additem){ const it={cat:S.dCat,menu:S.dMenu,perf:S.dPerf,size:S.dSize,count:Number(S.dCount)||1}; S.rItems=[...S.rItems,it]; }
+  else if(d.removeitem!==undefined && d.removeitem!==""){ S.rItems=S.rItems.filter((_,i)=>i!==Number(d.removeitem)); }
   else if(d.qty==="inc"){ S[qtyKey]=Number(S[qtyKey])+1; }
   else if(d.qty==="dec"){ S[qtyKey]=Math.max(1,Number(S[qtyKey])-1); }
   else return;
   render();
 });
 document.addEventListener("input", e=>{
+  if(e.target.dataset && e.target.dataset.dqty==="input"){ S.dCount=e.target.value; return; }
   if(e.target.dataset && e.target.dataset.qty==="input"){
     const qtyKey = S.program==="window" ? "wqty" : (S.program==="kyutou" ? "kqty" : (S.mkind==="reform" ? "rqty" : "mqty"));
     S[qtyKey]=e.target.value;
