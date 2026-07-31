@@ -206,6 +206,24 @@ const RF_BOUSAI = {
   outer: { label:"外窓交換", unit:"窓", sizes:["大","中","小"], amounts:[49200,32400,19200] },
 };
 const RF_BOUSAI_ORDER = ["glass","outer"];
+/* ⑤防犯(窓): 外窓・ドア。①断熱と重複時は高い方のみ */
+const RF_BOUHAN = {
+  outer: { label:"外窓交換", unit:"窓", sizes:["大","中","小"], amounts:[44400,31200,26400] },
+  door:  { label:"ドア交換", unit:"枚", sizes:["大","小"], amounts:[63600,45600] },
+};
+const RF_BOUHAN_ORDER = ["outer","door"];
+/* ⑤防音(生活騒音)(窓): ガラス・内窓・外窓・ドア */
+const RF_BOUON = {
+  glass: { label:"ガラス交換", unit:"枚", sizes:["大","中","小"], amounts:[13200,9600,3600] },
+  inner: { label:"内窓設置", unit:"窓", sizes:["大","中","小"], amounts:[15000,12000,10200] },
+  outer: { label:"外窓交換", unit:"窓", sizes:["大","中","小"], amounts:[30000,24000,20400] },
+  door:  { label:"ドア交換", unit:"枚", sizes:["大","小"], amounts:[43200,38400] },
+};
+const RF_BOUON_ORDER = ["glass","inner","outer","door"];
+/* 開口部付加性能(方法×サイズ)の共通マップ */
+const RF_OPENMS = { bousai:RF_BOUSAI, bouhan:RF_BOUHAN, bouon:RF_BOUON };
+const RF_OPENMS_ORDER = { bousai:RF_BOUSAI_ORDER, bouhan:RF_BOUHAN_ORDER, bouon:RF_BOUON_ORDER };
+const OPENMS_PREFIX = { bousai:"防災", bouhan:"防犯", bouon:"防音" };
 /* ②躯体の断熱改修: 部位×断熱性能、円/㎥（断熱材の体積） */
 const RF_KUTAI = {
   wall:  { label:"外壁", rates:{F:44000,E:30000,D:15000,C:14000,B:14000,A:14000} },
@@ -221,11 +239,13 @@ const RF_CATS = [
   { key:"equip",    label:"③④省エネ設備(給湯・エコ)", kind:"flat" },
   { key:"kosodate", label:"⑤子育て対応(設備)", kind:"flat" },
   { key:"bousai",   label:"⑥防災(窓)", kind:"openms" },
+  { key:"bouhan",   label:"⑤防犯(窓)", kind:"openms" },
+  { key:"bouon",    label:"⑤防音(窓)", kind:"openms" },
   { key:"barrier",  label:"⑦バリアフリー", kind:"flat" },
   { key:"other",    label:"⑧⑨空清エアコン・瑕疵保険", kind:"flat" },
 ];
 const CAT_KIND = Object.fromEntries(RF_CATS.map(c=>[c.key,c.kind]));
-const CAT_DEFAULT_MENU = { open:"inner", kutai:"wall", equip:"kyutou_hp", kosodate:"dishwasher", bousai:"glass", barrier:"tesuri", other:"ac_l" };
+const CAT_DEFAULT_MENU = { open:"inner", kutai:"wall", equip:"kyutou_hp", kosodate:"dishwasher", bousai:"glass", bouhan:"outer", bouon:"glass", barrier:"tesuri", other:"ac_l" };
 /* 要件化工事パターン(A)〜(H)：義務基準・次世代省エネ基準で共通（開口部性能→必要な躯体部位数）。義務基準は追加で③設備が必要 */
 const REQ_PATTERNS = {
   before_h3: [
@@ -285,14 +305,14 @@ function dqtyHtml(val,unit){
 function rfItemAmt(it){
   const kind=CAT_KIND[it.cat];
   if(kind==="open"){ const m=RF_OPEN[it.menu]; return (m.perfs[it.perf][it.size]||0)*it.count; }
-  if(kind==="openms"){ return (RF_BOUSAI[it.menu].amounts[it.size]||0)*it.count; }
+  if(kind==="openms"){ return (RF_OPENMS[it.cat][it.menu].amounts[it.size]||0)*it.count; }
   if(kind==="kutai"){ const rate=RF_KUTAI[it.menu].rates[it.perf]; return Math.floor(rate*(Number(it.vol)||0)/100)*100; }
   return RF_FLAT[it.cat][it.menu].amount*it.count;
 }
 function itemLabel(it){
   const kind=CAT_KIND[it.cat];
   if(kind==="open") return `${RF_OPEN[it.menu].label}・${PERF_LABEL[it.perf]}・${RF_OPEN[it.menu].sizes[it.size]} ×${it.count}`;
-  if(kind==="openms") return `防災 ${RF_BOUSAI[it.menu].label}・${RF_BOUSAI[it.menu].sizes[it.size]} ×${it.count}`;
+  if(kind==="openms") return `${OPENMS_PREFIX[it.cat]} ${RF_OPENMS[it.cat][it.menu].label}・${RF_OPENMS[it.cat][it.menu].sizes[it.size]} ×${it.count}`;
   if(kind==="kutai") return `躯体 ${RF_KUTAI[it.menu].label}・${it.perf}・${it.vol}㎥`;
   return `${RF_FLAT[it.cat][it.menu].label} ×${it.count}`;
 }
@@ -453,13 +473,13 @@ function render(){
             ${sec("寸","サイズ",`<div class="grid ${m.sizes.length===3?'g3':'g2'}">${sizeChips}</div>`)}
             ${sec("数",`数量（${m.unit}）`, dqtyHtml(S.dCount,m.unit))}`;
         } else if(kind==="openms"){
-          const m=RF_BOUSAI[S.dMenu];
-          const menuChips=RF_BOUSAI_ORDER.map(k=>chip(S.dMenu===k, RF_BOUSAI[k].label,"",`data-dmenu="${k}"`)).join("");
+          const tbl=RF_OPENMS[S.dCat], ord=RF_OPENMS_ORDER[S.dCat]; const m=tbl[S.dMenu];
+          const menuChips=ord.map(k=>chip(S.dMenu===k, tbl[k].label,"",`data-dmenu="${k}"`)).join("");
           const sizeChips=m.sizes.map((sz,i)=>chip(S.dSize===i, sz,"",`data-dsize="${i}"`)).join("");
           draftBody=`
-            <div class="note" style="margin-bottom:8px">同じ窓で①断熱改修と重複する場合は、高い方のみ計上してください（両方足さない）。</div>
+            <div class="note" style="margin-bottom:8px">${OPENMS_PREFIX[S.dCat]}窓：同じ窓で①断熱改修や他の付加性能と重複する場合は、高い方のみ計上してください（両方足さない）。</div>
             ${sec("工","工事メニュー",`<div class="grid g2">${menuChips}</div>`)}
-            ${sec("寸","サイズ",`<div class="grid g3">${sizeChips}</div>`)}
+            ${sec("寸","サイズ",`<div class="grid ${m.sizes.length===3?'g3':'g2'}">${sizeChips}</div>`)}
             ${sec("数",`数量（${m.unit}）`, dqtyHtml(S.dCount,m.unit))}`;
         } else if(kind==="kutai"){
           const partChips=RF_KUTAI_ORDER.map(k=>chip(S.dMenu===k, RF_KUTAI[k].label,"",`data-dmenu="${k}"`)).join("");
@@ -554,8 +574,8 @@ document.addEventListener("click", e=>{
   else if(d.tperf){ S.tPerf=d.tperf; }
   else if(d.trigger!==undefined && d.trigger!==""){ S.trigger=d.trigger==="1"; }
   else if(d.rmode){ S.rMode=d.rmode; }
-  else if(d.dcat){ S.dCat=d.dcat; S.dMenu=CAT_DEFAULT_MENU[d.dcat]; const kd=CAT_KIND[d.dcat]; if(kd==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } if(kd==="openms"){ if(S.dSize>=RF_BOUSAI[S.dMenu].sizes.length) S.dSize=0; } }
-  else if(d.dmenu){ S.dMenu=d.dmenu; const kd=CAT_KIND[S.dCat]; if(kd==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } if(kd==="openms"){ if(S.dSize>=RF_BOUSAI[S.dMenu].sizes.length) S.dSize=0; } }
+  else if(d.dcat){ S.dCat=d.dcat; S.dMenu=CAT_DEFAULT_MENU[d.dcat]; const kd=CAT_KIND[d.dcat]; if(kd==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } if(kd==="openms"){ if(S.dSize>=RF_OPENMS[d.dcat][S.dMenu].sizes.length) S.dSize=0; } }
+  else if(d.dmenu){ S.dMenu=d.dmenu; const kd=CAT_KIND[S.dCat]; if(kd==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } if(kd==="openms"){ if(S.dSize>=RF_OPENMS[S.dCat][S.dMenu].sizes.length) S.dSize=0; } }
   else if(d.dperf){ S.dPerf=d.dperf; }
   else if(d.dkperf){ S.dKPerf=d.dkperf; }
   else if(d.dsize!==undefined && d.dsize!==""){ S.dSize=Number(d.dsize); }
