@@ -418,7 +418,8 @@ function render(){
         const partsTxt = pat.parts===0 ? "躯体の断熱改修は不要" : `躯体の断熱改修 ${pat.parts}部位以上`;
         patternBlock=`
           ${sec("開","トリガールームの開口部の性能",`<div class="grid g2">${perfChips}</div>`)}
-          <div class="badge" style="margin:0 0 12px"><b>パターン(${pat.id})</b>&nbsp;開口部 ${pat.perfLabel}　＋　${partsTxt}　＋　高効率給湯器 or 高効率エアコン</div>`;
+          <div class="badge" style="margin:0 0 8px"><b>パターン(${pat.id})</b>&nbsp;開口部 ${pat.perfLabel}　＋　${partsTxt}　＋　高効率給湯器 or エアコン</div>
+          <div class="note" style="margin:0 0 12px"><b>この要件化工事の内容</b><br>① 開口部：トリガールームの外皮に面する<b>全ての</b>開口部を改修（最低性能 ${pat.perfLabel}／ガラス・内窓・外窓・ドア）<br>② 躯体：${pat.parts===0?"<b>不要</b>":`外壁・屋根天井・床から <b>${pat.parts}部位以上</b>に最低使用量以上の断熱`}<br>③ 設備：高効率給湯器 <b>1台</b> or 高効率エアコン <b>1箇所以上</b></div>`;
       } else {
         patternBlock=`<div class="note" style="margin-bottom:8px">次世代省エネ基準：①開口部＋②躯体の断熱改修（③設備は不要）。組合せパターンは公式の要件表をご確認ください。</div>`;
       }
