@@ -56,6 +56,26 @@
   .r-total-v { font-size:30px; font-weight:900; letter-spacing:-.02em; color:var(--accent-text); }
   .r-foot { font-size:11px; color:#94a3b8; line-height:1.6; margin-top:12px; }
   .credit { text-align:center; font-size:11px; color:#94a3b8; margin-top:16px; }
+  .printbtn { width:100%; margin-top:12px; padding:12px; border:1px solid #cbd5e1; background:#fff; color:#334155; border-radius:12px; font:inherit; font-weight:700; font-size:15px; cursor:pointer; }
+  .printbtn:hover { background:#f8fafc; }
+  @media screen { #printsheet { display:none; } }
+  @media print {
+    body { background:#fff; padding:0; margin:0; }
+    #app { max-width:none; }
+    #app > *:not(#printsheet) { display:none !important; }
+    #printsheet { display:block !important; padding:24px; color:#000; }
+    #printsheet .p-head { border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:flex-end; }
+    #printsheet .p-title { font-size:20px; font-weight:900; }
+    #printsheet .p-co { font-size:15px; font-weight:700; }
+    #printsheet table { width:100%; border-collapse:collapse; margin-bottom:10px; }
+    #printsheet th, #printsheet td { border:1px solid #888; padding:6px 10px; text-align:left; font-size:13px; vertical-align:top; }
+    #printsheet th { background:#f0f0f0; width:26%; white-space:nowrap; }
+    #printsheet td.r { text-align:right; white-space:nowrap; }
+    #printsheet tr.sub td { background:#f7f7f7; }
+    #printsheet tr.total th, #printsheet tr.total td { background:#e8e8e8; font-weight:900; font-size:16px; }
+    #printsheet .p-note { font-size:10px; color:#333; margin-top:8px; line-height:1.6; }
+    #printsheet .p-date { font-size:12px; text-align:right; margin-top:14px; }
+  }
   .addbtn { width:100%; margin-top:4px; padding:10px; border:1px dashed var(--accent); background:var(--accent-bg); color:var(--accent); border-radius:12px; font:inherit; font-weight:700; font-size:14px; cursor:pointer; }
   .rf-builder { border:1px solid #e2e8f0; border-radius:12px; padding:12px; background:#fbfdff; margin-top:4px; }
   .item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; margin-bottom:6px; }
@@ -275,6 +295,7 @@ const PRODUCT_GROUPS = [
 
 const yen = n => "¥" + Number(n).toLocaleString("ja-JP");
 const esc = s => String(s);
+const PROGRAM_NAME = { window:"先進的窓リノベ2026事業（環境省）", kyutou:"給湯省エネ2026事業（経産省）", mirai:"みらいエコ住宅2026事業（国交省）" };
 
 /* ===== 状態 ===== */
 const S = { program:"window", showProducts:false,
@@ -522,6 +543,13 @@ function render(){
   }
 
   const topLabel=(S.program==="mirai"&&S.mkind==="reform"&&S.rMode==="sum")?"積み上げ合計":("1"+unit+"あたり");
+  const today=new Date().toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric"});
+  let printRows="";
+  if(S.program==="mirai"&&S.mkind==="reform"&&S.rMode==="sum"){
+    printRows=S.rItems.map(it=>`<tr><td>${itemLabel(it)}</td><td class="r">${yen(rfItemAmt(it))}</td></tr>`).join("");
+    if(S.rItems.length){ printRows+=`<tr class="sub"><th>積み上げ合計</th><td class="r">${yen(rfSum())}</td></tr><tr class="sub"><th>補助上限額</th><td class="r">${yen(REFORM_CAP[S.rEra][S.rBasis])}</td></tr>`; }
+  }
+  const printHtml=`<div id="printsheet"><div class="p-head"><div class="p-title">住宅省エネ補助金 概算見積</div><div class="p-co">（株）ライフデザイン</div></div><table><tr><th>事業</th><td>${esc(PROGRAM_NAME[S.program])}</td></tr><tr><th>内容</th><td>${esc(summary)}</td></tr>${printRows}<tr class="total"><th>${resultLabel}</th><td class="r">${yen(total)}</td></tr></table><div class="p-note">※本書は概算です。実際の交付額は登録製品・性能証明書・地域区分・審査等により決定します。出典：住宅省エネ2026キャンペーン各事業（環境省・経済産業省・国土交通省）。</div><div class="p-date">作成日：${today}</div></div>`;
   const productView = `
     <button class="backbtn" data-hideprod="1">← 計算にもどる</button>
     <h2 style="font-size:16px;font-weight:800;margin-bottom:4px">補助対象の品番を検索</h2>
@@ -540,22 +568,25 @@ function render(){
       <div class="r-div"></div>
       <div class="r-row"><span class="r-total-l">${resultLabel}</span><span class="r-total-v">${yen(total)}</span></div>
       <p class="r-foot">※目安金額です。実際の交付は登録製品・性能証明書・地域区分等の区分に基づきます。対象品番は「品番検索」で公式DBをご確認ください。</p>
-    </div>`;
+    </div>
+    <button class="printbtn" data-print="1">🖨 この内容を印刷／PDF保存</button>`;
   app.innerHTML=`
     <div class="brand">住宅省エネ2026キャンペーン</div>
     <h1>補助金クイック計算</h1>
     <p class="lead">3事業を1画面で ／ （株）ライフデザイン営業用</p>
     ${S.showProducts ? productView : calcView}
     <p class="credit">補助額はアプリ内蔵／品番は公式の最新DBを参照</p>
+    ${printHtml}
   `;
 }
 
 /* ===== イベント ===== */
 document.addEventListener("click", e=>{
-  const el=e.target.closest("[data-showprod],[data-hideprod],[data-tab],[data-work],[data-building],[data-grade],[data-size],[data-device],[data-bonus],[data-mkind],[data-mtype],[data-region],[data-jokyaku],[data-rera],[data-rbasis],[data-tperf],[data-trigger],[data-rmode],[data-dcat],[data-dmenu],[data-dperf],[data-dsize],[data-dkperf],[data-dqty],[data-additem],[data-removeitem],[data-qty]");
+  const el=e.target.closest("[data-showprod],[data-hideprod],[data-tab],[data-work],[data-building],[data-grade],[data-size],[data-device],[data-bonus],[data-mkind],[data-mtype],[data-region],[data-jokyaku],[data-rera],[data-rbasis],[data-tperf],[data-trigger],[data-rmode],[data-dcat],[data-dmenu],[data-dperf],[data-dsize],[data-dkperf],[data-dqty],[data-additem],[data-removeitem],[data-print],[data-qty]");
   if(!el) return;
   const qtyKey = S.program==="window" ? "wqty" : (S.program==="kyutou" ? "kqty" : (S.mkind==="reform" ? "rqty" : "mqty"));
   const d=el.dataset;
+  if(d.print){ window.print(); return; }
   if(d.showprod){ S.showProducts=true; }
   else if(d.hideprod){ S.showProducts=false; }
   else if(d.tab){ S.program=d.tab; }
