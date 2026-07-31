@@ -62,6 +62,13 @@
   .item-l { font-size:13px; color:#334155; flex:1; line-height:1.3; }
   .item-r { font-size:14px; font-weight:700; color:#0f172a; white-space:nowrap; }
   .item-x { width:24px; height:24px; border:none; background:#f1f5f9; color:#64748b; border-radius:6px; font-size:14px; cursor:pointer; }
+  .pbtn { width:100%; padding:12px; border:1px solid #2563eb; background:#eff6ff; color:#2563eb; border-radius:12px; font:inherit; font-weight:700; font-size:14px; cursor:pointer; margin-bottom:16px; }
+  .backbtn { border:none; background:#f1f5f9; color:#475569; border-radius:10px; padding:8px 14px; font:inherit; font-weight:700; font-size:13px; cursor:pointer; margin-bottom:12px; }
+  .pgroup { margin-bottom:14px; }
+  .pgroup-t { font-size:12px; font-weight:700; color:#64748b; margin-bottom:6px; }
+  .plink { display:flex; align-items:center; justify-content:space-between; text-decoration:none; border:1px solid #e2e8f0; background:#fff; color:#334155; border-radius:10px; padding:10px 12px; font-size:14px; font-weight:600; margin-bottom:6px; }
+  .plink:hover { border-color:#93c5fd; background:#eff6ff; }
+  .plink .arw { color:#94a3b8; font-size:12px; font-weight:400; }
 </style>
 </head>
 <body>
@@ -160,19 +167,102 @@ const RF_EQUIP = {
   kyutou_hp:  { label:"高効率給湯器(エコキュート/ハイブリッド)", amount:45000, unit:"戸" },
   kyutou_gas: { label:"高効率給湯器(エコジョーズ/エコフィール)", amount:30000, unit:"戸" },
   aircon:     { label:"高効率エアコン", amount:52000, unit:"箇所" },
+  solar:      { label:"太陽熱利用システム", amount:45000, unit:"戸" },
+  bath:       { label:"高断熱浴槽", amount:48000, unit:"戸" },
+  battery:    { label:"蓄電池", amount:96000, unit:"戸" },
+  toilet_c:   { label:"節水トイレ(掃除しやすい)", amount:34500, unit:"箇所" },
+  toilet:     { label:"節水トイレ(その他)", amount:31500, unit:"箇所" },
+  faucet:     { label:"節湯水栓", amount:9000, unit:"箇所" },
 };
-const RF_EQUIP_ORDER = ["kyutou_hp","kyutou_gas","aircon"];
+const RF_EQUIP_ORDER = ["kyutou_hp","kyutou_gas","aircon","solar","bath","battery","toilet_c","toilet","faucet"];
+const RF_KOSODATE = {
+  dishwasher: { label:"ビルトイン食器洗機", amount:30000, unit:"戸" },
+  rangehood:  { label:"掃除しやすいレンジフード", amount:15600, unit:"戸" },
+  cooktop:    { label:"ビルトイン自動調理コンロ", amount:18000, unit:"戸" },
+  bathdryer:  { label:"浴室乾燥機", amount:27600, unit:"戸" },
+  delivbox:   { label:"宅配ボックス(住戸専用)", amount:13200, unit:"戸" },
+  taimen:     { label:"キッチン対面化改修", amount:106800, unit:"戸" },
+};
+const RF_KOSODATE_ORDER = ["dishwasher","rangehood","cooktop","bathdryer","delivbox","taimen"];
+const RF_BARRIER = {
+  tesuri: { label:"手すりの設置", amount:7200, unit:"戸" },
+  dansa:  { label:"段差解消", amount:8400, unit:"戸" },
+  rouka:  { label:"廊下幅等の拡張", amount:33600, unit:"戸" },
+  tatami: { label:"衝撃緩和畳の設置", amount:25200, unit:"戸" },
+};
+const RF_BARRIER_ORDER = ["tesuri","dansa","rouka","tatami"];
+const RF_OTHER = {
+  ac_l:  { label:"空清・換気エアコン(3.6kW超)", amount:32400, unit:"箇所" },
+  ac_m:  { label:"空清・換気エアコン(2.2〜3.6kW)", amount:28800, unit:"箇所" },
+  ac_s:  { label:"空清・換気エアコン(2.2kW以下)", amount:24000, unit:"箇所" },
+  kashi: { label:"リフォーム瑕疵保険", amount:8400, unit:"契約" },
+};
+const RF_OTHER_ORDER = ["ac_l","ac_m","ac_s","kashi"];
+const RF_FLAT = { equip:RF_EQUIP, kosodate:RF_KOSODATE, barrier:RF_BARRIER, other:RF_OTHER };
+const RF_FLAT_ORDER = { equip:RF_EQUIP_ORDER, kosodate:RF_KOSODATE_ORDER, barrier:RF_BARRIER_ORDER, other:RF_OTHER_ORDER };
+/* ⑥防災(窓): 方法×サイズ[大,中,小]、性能区分なし */
+const RF_BOUSAI = {
+  glass: { label:"ガラス交換", unit:"枚", sizes:["大","中","小"], amounts:[21600,14400,8400] },
+  outer: { label:"外窓交換", unit:"窓", sizes:["大","中","小"], amounts:[49200,32400,19200] },
+};
+const RF_BOUSAI_ORDER = ["glass","outer"];
+/* ②躯体の断熱改修: 部位×断熱性能、円/㎥（断熱材の体積） */
+const RF_KUTAI = {
+  wall:  { label:"外壁", rates:{F:44000,E:30000,D:15000,C:14000,B:14000,A:14000} },
+  roof:  { label:"屋根・天井", rates:{F:44000,E:30000,D:15000,C:14000,B:13000,A:13000} },
+  floor: { label:"床", rates:{F:62000,E:48000,D:27000,C:25000,B:25000,A:25000} },
+};
+const RF_KUTAI_ORDER = ["wall","roof","floor"];
+const KUTAI_PERF = ["F","E","D","C","B","A"];
+/* カテゴリ定義（kind: open/flat/openms/kutai） */
+const RF_CATS = [
+  { key:"open",     label:"①開口部の断熱改修", kind:"open" },
+  { key:"kutai",    label:"②躯体の断熱改修(㎥)", kind:"kutai" },
+  { key:"equip",    label:"③④省エネ設備(給湯・エコ)", kind:"flat" },
+  { key:"kosodate", label:"⑤子育て対応(設備)", kind:"flat" },
+  { key:"bousai",   label:"⑥防災(窓)", kind:"openms" },
+  { key:"barrier",  label:"⑦バリアフリー", kind:"flat" },
+  { key:"other",    label:"⑧⑨空清エアコン・瑕疵保険", kind:"flat" },
+];
+const CAT_KIND = Object.fromEntries(RF_CATS.map(c=>[c.key,c.kind]));
+const CAT_DEFAULT_MENU = { open:"inner", kutai:"wall", equip:"kyutou_hp", kosodate:"dishwasher", bousai:"glass", barrier:"tesuri", other:"ac_l" };
+/* 義務基準相当の要件化工事パターン(A)〜(H)：開口部の最低性能区分ごとに必要な躯体部位数 */
+const GIMU_PATTERNS = {
+  before_h3: [
+    { id:"A", perf:"P",  perfLabel:"P (1.1以下)", parts:0 },
+    { id:"B", perf:"S",  perfLabel:"S (1.5以下)", parts:1 },
+    { id:"C", perf:"A",  perfLabel:"A (1.9以下)", parts:2 },
+    { id:"D", perf:"BC", perfLabel:"B・C (2.3/2.9以下)", parts:3 },
+  ],
+  h4_h28: [
+    { id:"E", perf:"P",  perfLabel:"P (1.1以下)", parts:0 },
+    { id:"F", perf:"S",  perfLabel:"S (1.5以下)", parts:0 },
+    { id:"G", perf:"A",  perfLabel:"A (1.9以下)", parts:1 },
+    { id:"H", perf:"BC", perfLabel:"B・C (2.3/2.9以下)", parts:2 },
+  ],
+};
+const TPERF_OPTS = [{k:"P",l:"P (1.1以下)"},{k:"S",l:"S (1.5以下)"},{k:"A",l:"A (1.9以下)"},{k:"BC",l:"B・C以下"}];
+/* 補助対象品番の公式検索（常に最新DB） */
+const PRODUCT_BASE = "https://jutaku-shoene2026.mlit.go.jp/manufacturer/search/product/";
+const PRODUCT_GROUPS = [
+  { title:"窓・ドア（開口部）", items:[["ガラス","glass-dan"],["外窓","outside-window-dan"],["内窓","inner-window-dan-bo"],["ドア","door-dan"]] },
+  { title:"躯体の断熱", items:[["断熱材","insulation-material"]] },
+  { title:"給湯器", items:[["エコキュート","high-efficiency-water-heater-ec"],["ハイブリッド","high-efficiency-water-heater-hb"],["エネファーム","high-efficiency-water-heater-en"],["エコジョーズ","high-efficiency-water-heater-ej"],["エコフィール","high-efficiency-water-heater-ef"]] },
+  { title:"省エネ設備", items:[["高効率エアコン","air-conditioner"],["太陽熱利用システム","solar-heat-system"],["節水型トイレ","water-saving-toilet"],["高断熱浴槽","high-insulation-tub"],["節湯水栓","hot-water-faucet"],["蓄電池","battery-system"],["第一種換気設備","ventilation-equipment"]] },
+  { title:"子育て対応", items:[["ビルトイン食器洗機","built-in-dishwasher"],["レンジフード","range-hood"],["自動調理コンロ(ガス)","auto-cooking-stove-gas"],["自動調理コンロ(IH)","auto-cooking-stove-ih"],["浴室乾燥機","bathroom-dryer"],["宅配ボックス","delivery-box"]] },
+  { title:"バリアフリー", items:[["衝撃緩和畳","shock-absorbing-tatami"]] },
+];
 
 const yen = n => "¥" + Number(n).toLocaleString("ja-JP");
 const esc = s => String(s);
 
 /* ===== 状態 ===== */
-const S = { program:"window",
+const S = { program:"window", showProducts:false,
   work:"inner-window", building:"kodate", grade:"P", size:2, wqty:1,
   device:"ecocute", bonus:false, kqty:1,
   mtype:"gx", region:"warm", jokyaku:false, mqty:1,
   mkind:"new", rEra:"h4_h28", rBasis:"gimu", rqty:1,
-  rMode:"cap", rItems:[], dCat:"open", dMenu:"inner", dPerf:"B", dSize:0, dCount:1,
+  rMode:"cap", rItems:[], trigger:true, tPerf:"S", dCat:"open", dMenu:"inner", dPerf:"B", dSize:0, dCount:1, dKPerf:"D", dVol:1,
   rates:null };
 const ACCENT = {
   window:{a:"#059669",bg:"#ecfdf5",bd:"#a7f3d0",tx:"#34d399"},
@@ -193,8 +283,21 @@ function dqtyHtml(val,unit){
   return `<div class="qty"><button class="qbtn" data-dqty="dec">−</button><input class="qinput" type="number" min="1" value="${val}" data-dqty="input"><button class="qbtn" data-dqty="inc">+</button><span class="qunit">${unit}</span></div>`;
 }
 function rfItemAmt(it){
-  if(it.cat==="open"){ const m=RF_OPEN[it.menu]; return (m.perfs[it.perf][it.size]||0)*it.count; }
-  return RF_EQUIP[it.menu].amount*it.count;
+  const kind=CAT_KIND[it.cat];
+  if(kind==="open"){ const m=RF_OPEN[it.menu]; return (m.perfs[it.perf][it.size]||0)*it.count; }
+  if(kind==="openms"){ return (RF_BOUSAI[it.menu].amounts[it.size]||0)*it.count; }
+  if(kind==="kutai"){ const rate=RF_KUTAI[it.menu].rates[it.perf]; return Math.floor(rate*(Number(it.vol)||0)/100)*100; }
+  return RF_FLAT[it.cat][it.menu].amount*it.count;
+}
+function itemLabel(it){
+  const kind=CAT_KIND[it.cat];
+  if(kind==="open") return `${RF_OPEN[it.menu].label}・${PERF_LABEL[it.perf]}・${RF_OPEN[it.menu].sizes[it.size]} ×${it.count}`;
+  if(kind==="openms") return `防災 ${RF_BOUSAI[it.menu].label}・${RF_BOUSAI[it.menu].sizes[it.size]} ×${it.count}`;
+  if(kind==="kutai") return `躯体 ${RF_KUTAI[it.menu].label}・${it.perf}・${it.vol}㎥`;
+  return `${RF_FLAT[it.cat][it.menu].label} ×${it.count}`;
+}
+function dvolHtml(val){
+  return `<div class="qty"><input class="qinput" style="width:120px" type="number" min="0" step="0.1" value="${val}" data-dvol="input"><span class="qunit">㎥</span></div>`;
 }
 function rfSum(){ return S.rItems.reduce((a,it)=>a+rfItemAmt(it),0); }
 
@@ -233,7 +336,10 @@ function render(){
       const cap=REFORM_CAP[S.rEra][S.rBasis];
       const el=REFORM_ERAS.find(e=>e.key===S.rEra).main;
       const bl=REFORM_BASIS.find(b=>b.key===S.rBasis).main;
-      if(S.rMode==="cap"){
+      if(!S.trigger){
+        perUnit=S.rMode==="sum"?rfSum():cap; total=0; unit="戸"; resultLabel="補助対象外";
+        summary=`トリガールームの要件化工事が未実施のため補助対象外（0円）`;
+      } else if(S.rMode==="cap"){
         perUnit=cap; total=cap; unit="戸"; resultLabel="補助上限額";
         summary=`リフォーム・${el}・${bl}（1戸あたり上限額）`;
       } else {
@@ -304,7 +410,24 @@ function render(){
       const eraChips = REFORM_ERAS.map(e=>chip(S.rEra===e.key, e.main, e.sub, `data-rera="${e.key}"`)).join("");
       const basisChips = REFORM_BASIS.map(b=>chip(S.rBasis===b.key, b.main, b.sub, `data-rbasis="${b.key}"`)).join("");
       const modeChips = `${chip(S.rMode==="cap","上限を見る","",'data-rmode="cap"')}${chip(S.rMode==="sum","実額つみあげ","",'data-rmode="sum"')}`;
-      const condSecs = `${sec("時","対象住宅の新築時期",`<div class="grid g1">${eraChips}</div>`)}${sec("基","実施する工事の基準",`<div class="grid g1">${basisChips}</div>`)}`;
+      const triggerChips = `${chip(S.trigger,"実施する","要件化工事あり",'data-trigger="1"')}${chip(!S.trigger,"未実施","補助対象外",'data-trigger="0"')}`;
+      let patternBlock="";
+      if(S.rBasis==="gimu"){
+        const perfChips=TPERF_OPTS.map(o=>chip(S.tPerf===o.k, o.l,"",`data-tperf="${o.k}"`)).join("");
+        const pat=GIMU_PATTERNS[S.rEra].find(x=>x.perf===S.tPerf);
+        const partsTxt = pat.parts===0 ? "躯体の断熱改修は不要" : `躯体の断熱改修 ${pat.parts}部位以上`;
+        patternBlock=`
+          ${sec("開","トリガールームの開口部の性能",`<div class="grid g2">${perfChips}</div>`)}
+          <div class="badge" style="margin:0 0 12px"><b>パターン(${pat.id})</b>&nbsp;開口部 ${pat.perfLabel}　＋　${partsTxt}　＋　高効率給湯器 or 高効率エアコン</div>`;
+      } else {
+        patternBlock=`<div class="note" style="margin-bottom:8px">次世代省エネ基準：①開口部＋②躯体の断熱改修（③設備は不要）。組合せパターンは公式の要件表をご確認ください。</div>`;
+      }
+      const condSecs = `
+        <div class="note" style="margin-bottom:8px"><b>トリガールーム</b>＝外皮に面する開口部を持つ1つの居室。ここで要件化工事を行うことが補助の<b>大前提</b>です。開口部の性能が低いほど、必要な躯体の部位数が増えます。</div>
+        ${sec("時","対象住宅の新築時期",`<div class="grid g1">${eraChips}</div>`)}
+        ${sec("要","要件化工事の基準",`<div class="grid g1">${basisChips}</div>`)}
+        ${patternBlock}
+        ${sec("居","要件化工事の実施",`<div class="grid g2">${triggerChips}</div>`)}`;
       if(S.rMode==="cap"){
         panel=`
           ${linkRow}
@@ -315,9 +438,10 @@ function render(){
           <div class="note" style="margin-top:8px">表示額は補助の<b>上限額</b>です。実際の額は「実額つみあげ」で工事を足して概算できます。</div>
         `;
       } else {
-        const catChips = `${chip(S.dCat==="open","開口部の断熱改修","",'data-dcat="open"')}${chip(S.dCat==="equip","特定エコ設備","",'data-dcat="equip"')}`;
+        const catChips = RF_CATS.map(c=>chip(S.dCat===c.key, c.label,"",`data-dcat="${c.key}"`)).join("");
+        const kind=CAT_KIND[S.dCat];
         let draftBody="";
-        if(S.dCat==="open"){
+        if(kind==="open"){
           const m=RF_OPEN[S.dMenu]; const perfKeys=Object.keys(m.perfs);
           const menuChips=RF_OPEN_ORDER.map(k=>chip(S.dMenu===k, RF_OPEN[k].label,"",`data-dmenu="${k}"`)).join("");
           const perfChips=perfKeys.map(k=>chip(S.dPerf===k, PERF_LABEL[k],"",`data-dperf="${k}"`)).join("");
@@ -325,20 +449,36 @@ function render(){
           draftBody=`
             ${sec("工","工事メニュー",`<div class="grid g2">${menuChips}</div>`)}
             ${sec("性","性能区分",`<div class="grid ${perfKeys.length>=3?'g3':'g2'}">${perfChips}</div>`)}
-            ${sec("size","サイズ",`<div class="grid ${m.sizes.length===3?'g3':'g2'}">${sizeChips}</div>`)}
+            ${sec("寸","サイズ",`<div class="grid ${m.sizes.length===3?'g3':'g2'}">${sizeChips}</div>`)}
             ${sec("数",`数量（${m.unit}）`, dqtyHtml(S.dCount,m.unit))}`;
-        } else {
-          const menuChips=RF_EQUIP_ORDER.map(k=>chip(S.dMenu===k, RF_EQUIP[k].label, `${RF_EQUIP[k].amount.toLocaleString()}円/${RF_EQUIP[k].unit}`,`data-dmenu="${k}"`)).join("");
+        } else if(kind==="openms"){
+          const m=RF_BOUSAI[S.dMenu];
+          const menuChips=RF_BOUSAI_ORDER.map(k=>chip(S.dMenu===k, RF_BOUSAI[k].label,"",`data-dmenu="${k}"`)).join("");
+          const sizeChips=m.sizes.map((sz,i)=>chip(S.dSize===i, sz,"",`data-dsize="${i}"`)).join("");
           draftBody=`
-            ${sec("設","設備",`<div class="grid g1">${menuChips}</div>`)}
-            ${sec("数","数量", dqtyHtml(S.dCount, RF_EQUIP[S.dMenu].unit))}`;
+            <div class="note" style="margin-bottom:8px">同じ窓で①断熱改修と重複する場合は、高い方のみ計上してください（両方足さない）。</div>
+            ${sec("工","工事メニュー",`<div class="grid g2">${menuChips}</div>`)}
+            ${sec("寸","サイズ",`<div class="grid g3">${sizeChips}</div>`)}
+            ${sec("数",`数量（${m.unit}）`, dqtyHtml(S.dCount,m.unit))}`;
+        } else if(kind==="kutai"){
+          const partChips=RF_KUTAI_ORDER.map(k=>chip(S.dMenu===k, RF_KUTAI[k].label,"",`data-dmenu="${k}"`)).join("");
+          const perfChips=KUTAI_PERF.map(k=>chip(S.dKPerf===k, k,"",`data-dkperf="${k}"`)).join("");
+          draftBody=`
+            <div class="note" style="margin-bottom:8px">断熱材の体積（㎥）あたりで補助。性能はF(高性能)〜A。㎥は使用する断熱材の量。</div>
+            ${sec("部","部位",`<div class="grid g3">${partChips}</div>`)}
+            ${sec("性","断熱性能",`<div class="grid g3">${perfChips}</div>`)}
+            ${sec("量","断熱材の量（㎥）", dvolHtml(S.dVol))}`;
+        } else {
+          const tbl=RF_FLAT[S.dCat], ord=RF_FLAT_ORDER[S.dCat];
+          const menuChips=ord.map(k=>chip(S.dMenu===k, tbl[k].label, `${tbl[k].amount.toLocaleString()}円/${tbl[k].unit}`,`data-dmenu="${k}"`)).join("");
+          draftBody=`
+            ${sec("設","項目",`<div class="grid g1">${menuChips}</div>`)}
+            ${sec("数","数量", dqtyHtml(S.dCount, tbl[S.dMenu].unit))}`;
         }
         let list="";
         if(S.rItems.length){
           list=S.rItems.map((it,i)=>{
-            const amt=rfItemAmt(it);
-            const lbl = it.cat==="open" ? `${RF_OPEN[it.menu].label}・${PERF_LABEL[it.perf]}・${RF_OPEN[it.menu].sizes[it.size]} ×${it.count}` : `${RF_EQUIP[it.menu].label} ×${it.count}`;
-            return `<div class="item"><span class="item-l">${lbl}</span><span class="item-r">${yen(amt)}</span><button class="item-x" data-removeitem="${i}">×</button></div>`;
+            return `<div class="item"><span class="item-l">${itemLabel(it)}</span><span class="item-r">${yen(rfItemAmt(it))}</span><button class="item-x" data-removeitem="${i}">×</button></div>`;
           }).join("");
         } else { list=`<div class="note">まだ工事がありません。上で選んで「追加」を押してください。</div>`; }
         panel=`
@@ -348,44 +488,56 @@ function render(){
           ${condSecs}
           <div class="sec-t" style="margin:4px 0 8px">工事を追加</div>
           <div class="rf-builder">
-            ${sec("種","カテゴリ",`<div class="grid g2">${catChips}</div>`)}
+            ${sec("種","カテゴリ",`<div class="grid g1">${catChips}</div>`)}
             ${draftBody}
             <button class="addbtn" data-additem="1">＋ この工事を追加</button>
           </div>
           <div class="sec-t" style="margin:16px 0 8px">追加した工事</div>
           ${list}
-          <div class="note" style="margin-top:8px">躯体の断熱改修・その他メニュー（④〜⑨）は個別見積です。合計は上限額 ${yen(cap)} で頭打ちになります。</div>
+          <div class="note" style="margin-top:8px">①〜⑨の主要メニューを網羅（④換気設備は後日公表のため除く）。子育ての防犯窓・防音窓、⑥防災窓は①断熱と重複時は高い方のみ計上。合計は上限額 ${yen(cap)} で頭打ち。</div>
         `;
       }
     }
   }
 
   const topLabel=(S.program==="mirai"&&S.mkind==="reform"&&S.rMode==="sum")?"積み上げ合計":("1"+unit+"あたり");
-  app.innerHTML=`
-    <div class="brand">住宅省エネ2026キャンペーン</div>
-    <h1>補助金クイック計算</h1>
-    <p class="lead">3事業を1画面で ／ （株）ライフデザイン営業用</p>
+  const productView = `
+    <button class="backbtn" data-hideprod="1">← 計算にもどる</button>
+    <h2 style="font-size:16px;font-weight:800;margin-bottom:4px">補助対象の品番を検索</h2>
+    <p class="lead" style="margin-bottom:12px">工事の種類を選ぶと、公式の最新DB（毎日更新）で対象品番を確認できます。</p>
+    ${PRODUCT_GROUPS.map(g=>`<div class="pgroup"><div class="pgroup-t">${g.title}</div>${g.items.map(it=>`<a class="plink" href="${PRODUCT_BASE}${it[1]}/" target="_blank" rel="noopener">${it[0]}<span class="arw">公式で検索 ›</span></a>`).join("")}</div>`).join("")}
+    <div class="note">各ページの「製品型番で絞り込む（先頭一致）」で型番を検索できます。※登録型番はメーカーのカタログ品番と異なる場合があります。窓リノベのP・S・A製品もこのDBに含まれます。</div>
+  `;
+  const calcView = `
     <div class="tabs">${tabs}</div>
     ${badge}
+    <button class="pbtn" data-showprod="1">🔎 補助対象の品番を検索（公式の最新DB）</button>
     <div class="card">${panel}</div>
     <div class="result">
       <p class="r-summary">${esc(summary)}</p>
       <div class="r-row"><span class="r-label">${topLabel}</span><span class="r-unit">${yen(perUnit)}</span></div>
       <div class="r-div"></div>
       <div class="r-row"><span class="r-total-l">${resultLabel}</span><span class="r-total-v">${yen(total)}</span></div>
-      <p class="r-foot">※目安金額です。実際の交付は登録製品・性能証明書・地域区分等の区分に基づきます。給湯の撤去加算、リフォームの躯体断熱・その他メニュー(④〜⑨)は未反映。</p>
-    </div>
-    <p class="credit">補助額はアプリ内蔵／窓・給湯の消化率は自動取得（DBなし）</p>
+      <p class="r-foot">※目安金額です。実際の交付は登録製品・性能証明書・地域区分等の区分に基づきます。対象品番は「品番検索」で公式DBをご確認ください。</p>
+    </div>`;
+  app.innerHTML=`
+    <div class="brand">住宅省エネ2026キャンペーン</div>
+    <h1>補助金クイック計算</h1>
+    <p class="lead">3事業を1画面で ／ （株）ライフデザイン営業用</p>
+    ${S.showProducts ? productView : calcView}
+    <p class="credit">補助額はアプリ内蔵／品番は公式の最新DBを参照</p>
   `;
 }
 
 /* ===== イベント ===== */
 document.addEventListener("click", e=>{
-  const el=e.target.closest("[data-tab],[data-work],[data-building],[data-grade],[data-size],[data-device],[data-bonus],[data-mkind],[data-mtype],[data-region],[data-jokyaku],[data-rera],[data-rbasis],[data-rmode],[data-dcat],[data-dmenu],[data-dperf],[data-dsize],[data-dqty],[data-additem],[data-removeitem],[data-qty]");
+  const el=e.target.closest("[data-showprod],[data-hideprod],[data-tab],[data-work],[data-building],[data-grade],[data-size],[data-device],[data-bonus],[data-mkind],[data-mtype],[data-region],[data-jokyaku],[data-rera],[data-rbasis],[data-tperf],[data-trigger],[data-rmode],[data-dcat],[data-dmenu],[data-dperf],[data-dsize],[data-dkperf],[data-dqty],[data-additem],[data-removeitem],[data-qty]");
   if(!el) return;
   const qtyKey = S.program==="window" ? "wqty" : (S.program==="kyutou" ? "kqty" : (S.mkind==="reform" ? "rqty" : "mqty"));
   const d=el.dataset;
-  if(d.tab){ S.program=d.tab; }
+  if(d.showprod){ S.showProducts=true; }
+  else if(d.hideprod){ S.showProducts=false; }
+  else if(d.tab){ S.program=d.tab; }
   else if(d.work){ S.work=d.work; if(!WINDOW_WORKS[S.work].grades.includes(S.grade)) S.grade="P"; }
   else if(d.building){ S.building=d.building; }
   else if(d.grade){ S.grade=d.grade; }
@@ -398,14 +550,17 @@ document.addEventListener("click", e=>{
   else if(d.jokyaku!==undefined && d.jokyaku!==""){ S.jokyaku=d.jokyaku==="1"; }
   else if(d.rera){ S.rEra=d.rera; }
   else if(d.rbasis){ S.rBasis=d.rbasis; }
+  else if(d.tperf){ S.tPerf=d.tperf; }
+  else if(d.trigger!==undefined && d.trigger!==""){ S.trigger=d.trigger==="1"; }
   else if(d.rmode){ S.rMode=d.rmode; }
-  else if(d.dcat){ S.dCat=d.dcat; S.dMenu = d.dcat==="open" ? "inner" : "kyutou_hp"; if(S.dCat==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } }
-  else if(d.dmenu){ S.dMenu=d.dmenu; if(S.dCat==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } }
+  else if(d.dcat){ S.dCat=d.dcat; S.dMenu=CAT_DEFAULT_MENU[d.dcat]; const kd=CAT_KIND[d.dcat]; if(kd==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } if(kd==="openms"){ if(S.dSize>=RF_BOUSAI[S.dMenu].sizes.length) S.dSize=0; } }
+  else if(d.dmenu){ S.dMenu=d.dmenu; const kd=CAT_KIND[S.dCat]; if(kd==="open"){ const ks=Object.keys(RF_OPEN[S.dMenu].perfs); if(!ks.includes(S.dPerf)) S.dPerf=ks[0]; if(S.dSize>=RF_OPEN[S.dMenu].sizes.length) S.dSize=0; } if(kd==="openms"){ if(S.dSize>=RF_BOUSAI[S.dMenu].sizes.length) S.dSize=0; } }
   else if(d.dperf){ S.dPerf=d.dperf; }
+  else if(d.dkperf){ S.dKPerf=d.dkperf; }
   else if(d.dsize!==undefined && d.dsize!==""){ S.dSize=Number(d.dsize); }
   else if(d.dqty==="inc"){ S.dCount=Number(S.dCount)+1; }
   else if(d.dqty==="dec"){ S.dCount=Math.max(1,Number(S.dCount)-1); }
-  else if(d.additem){ const it={cat:S.dCat,menu:S.dMenu,perf:S.dPerf,size:S.dSize,count:Number(S.dCount)||1}; S.rItems=[...S.rItems,it]; }
+  else if(d.additem){ const kd=CAT_KIND[S.dCat]; let it; if(kd==="kutai"){ it={cat:S.dCat,menu:S.dMenu,perf:S.dKPerf,vol:Number(S.dVol)||0}; } else { it={cat:S.dCat,menu:S.dMenu,perf:S.dPerf,size:S.dSize,count:Number(S.dCount)||1}; } S.rItems=[...S.rItems,it]; }
   else if(d.removeitem!==undefined && d.removeitem!==""){ S.rItems=S.rItems.filter((_,i)=>i!==Number(d.removeitem)); }
   else if(d.qty==="inc"){ S[qtyKey]=Number(S[qtyKey])+1; }
   else if(d.qty==="dec"){ S[qtyKey]=Math.max(1,Number(S[qtyKey])-1); }
@@ -413,6 +568,7 @@ document.addEventListener("click", e=>{
   render();
 });
 document.addEventListener("input", e=>{
+  if(e.target.dataset && e.target.dataset.dvol==="input"){ S.dVol=e.target.value; return; }
   if(e.target.dataset && e.target.dataset.dqty==="input"){ S.dCount=e.target.value; return; }
   if(e.target.dataset && e.target.dataset.qty==="input"){
     const qtyKey = S.program==="window" ? "wqty" : (S.program==="kyutou" ? "kqty" : (S.mkind==="reform" ? "rqty" : "mqty"));
