@@ -226,8 +226,8 @@ const RF_CATS = [
 ];
 const CAT_KIND = Object.fromEntries(RF_CATS.map(c=>[c.key,c.kind]));
 const CAT_DEFAULT_MENU = { open:"inner", kutai:"wall", equip:"kyutou_hp", kosodate:"dishwasher", bousai:"glass", barrier:"tesuri", other:"ac_l" };
-/* 義務基準相当の要件化工事パターン(A)〜(H)：開口部の最低性能区分ごとに必要な躯体部位数 */
-const GIMU_PATTERNS = {
+/* 要件化工事パターン(A)〜(H)：義務基準・次世代省エネ基準で共通（開口部性能→必要な躯体部位数）。義務基準は追加で③設備が必要 */
+const REQ_PATTERNS = {
   before_h3: [
     { id:"A", perf:"P",  perfLabel:"P (1.1以下)", parts:0 },
     { id:"B", perf:"S",  perfLabel:"S (1.5以下)", parts:1 },
@@ -412,16 +412,16 @@ function render(){
       const modeChips = `${chip(S.rMode==="cap","上限を見る","",'data-rmode="cap"')}${chip(S.rMode==="sum","実額つみあげ","",'data-rmode="sum"')}`;
       const triggerChips = `${chip(S.trigger,"実施する","要件化工事あり",'data-trigger="1"')}${chip(!S.trigger,"未実施","補助対象外",'data-trigger="0"')}`;
       let patternBlock="";
-      if(S.rBasis==="gimu"){
+      {
         const perfChips=TPERF_OPTS.map(o=>chip(S.tPerf===o.k, o.l,"",`data-tperf="${o.k}"`)).join("");
-        const pat=GIMU_PATTERNS[S.rEra].find(x=>x.perf===S.tPerf);
-        const partsTxt = pat.parts===0 ? "躯体の断熱改修は不要" : `躯体の断熱改修 ${pat.parts}部位以上`;
+        const pat=REQ_PATTERNS[S.rEra].find(x=>x.perf===S.tPerf);
+        const needEquip=S.rBasis==="gimu";
+        const basisName=needEquip?"義務基準":"次世代省エネ基準";
+        const partsTxt = pat.parts===0 ? "躯体不要" : `躯体 ${pat.parts}部位以上`;
         patternBlock=`
           ${sec("開","トリガールームの開口部の性能",`<div class="grid g2">${perfChips}</div>`)}
-          <div class="badge" style="margin:0 0 8px"><b>パターン(${pat.id})</b>&nbsp;開口部 ${pat.perfLabel}　＋　${partsTxt}　＋　高効率給湯器 or エアコン</div>
-          <div class="note" style="margin:0 0 12px"><b>この要件化工事の内容</b><br>① 開口部：トリガールームの外皮に面する<b>全ての</b>開口部を改修（最低性能 ${pat.perfLabel}／ガラス・内窓・外窓・ドア）<br>② 躯体：${pat.parts===0?"<b>不要</b>":`外壁・屋根天井・床から <b>${pat.parts}部位以上</b>に最低使用量以上の断熱`}<br>③ 設備：高効率給湯器 <b>1台</b> or 高効率エアコン <b>1箇所以上</b></div>`;
-      } else {
-        patternBlock=`<div class="note" style="margin-bottom:8px">次世代省エネ基準：①開口部＋②躯体の断熱改修（③設備は不要）。組合せパターンは公式の要件表をご確認ください。</div>`;
+          <div class="badge" style="margin:0 0 8px"><b>パターン(${pat.id})</b>&nbsp;開口部 ${pat.perfLabel}　＋　${partsTxt}${needEquip?"　＋　高効率給湯器 or エアコン":""}</div>
+          <div class="note" style="margin:0 0 12px"><b>この要件化工事の内容</b>（${basisName}）<br>① 開口部：トリガールームの外皮に面する<b>全ての</b>開口部を改修（最低性能 ${pat.perfLabel}／ガラス・内窓・外窓・ドア）<br>② 躯体：${pat.parts===0?"<b>不要</b>":`外壁・屋根天井・床から <b>${pat.parts}部位以上</b>に最低使用量以上の断熱`}<br>③ 設備：${needEquip?"高効率給湯器 <b>1台</b> or 高効率エアコン <b>1箇所以上</b>":"<b>不要</b>（次世代省エネ基準）"}</div>`;
       }
       const condSecs = `
         <div class="note" style="margin-bottom:8px"><b>トリガールーム</b>＝外皮に面する開口部を持つ1つの居室。ここで要件化工事を行うことが補助の<b>大前提</b>です。開口部の性能が低いほど、必要な躯体の部位数が増えます。</div>
